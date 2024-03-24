@@ -15,14 +15,6 @@ contract NFTBurnTrackingPlugin is ModularSessionKeyPlugin {
 
     event NFTBurnt(address indexed account, address indexed nftContract, uint256 indexed tokenId);
 
-    function burnNFT(address nftContract, uint256 tokenId) external {
-        require(IERC721(nftContract).ownerOf(tokenId) == msg.sender, "Not the owner of the NFT");
-
-        IERC721(nftContract).transferFrom(msg.sender, address(0), tokenId);
-        _burntNFTSet[msg.sender].add(tokenId);
-
-        emit NFTBurnt(msg.sender, nftContract, tokenId);
-    }
 
     function getBurntNFTs(address account) external view returns (uint256[] memory) {
         EnumerableSet.UintSet storage burntNFTSet = _burntNFTSet[account];
