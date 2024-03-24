@@ -2,20 +2,32 @@
 pragma solidity ^0.8.19;
 
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "@ethereum-oauth/module-session-key/contracts/ModularSessionKeyPlugin.sol";
+import {BasePlugin} from "@alchemy/modular-account/src/plugins/BasePlugin.sol";
+import {
+    ManifestFunction,
+    ManifestAssociatedFunctionType,
+    ManifestAssociatedFunction,
+    PluginManifest,
+    PluginMetadata
+} from "@alchemy/modular-account/src/interfaces/IPlugin.sol";
+import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-contract CBNFTBurnTrackingPlugin is ModularSessionKeyPlugin {
+/// @title NFT Burn Tracking Plugin
+/// @author Elisha Day
+/// @notice This plugin lets you track and auto-burn unclaimed NFTs after a specified delay.
+contract CBNFTBurnTrackingPlugin is BasePlugin {
     using EnumerableSet for EnumerableSet.UintSet;
 
     string public constant NAME = "Cosmic Bots NFT Burn Tracking Plugin";
     string public constant VERSION = "1.0.0";
     string public constant AUTHOR = "Elisha Day";
 
-    mapping(address account => EnumerableSet.UintSet) private _burntNFTSet;
+    uint256 private constant AUTO_BURN_DELAY = 8 hours;
+
+    mapping(address => EnumerableSet.UintSet) private _burntNFTSet;
+    mapping(address => mapping(uint256 => uint256)) private _lastClaimTimestamp;
 
     event NFTBurnt(address indexed account, address indexed nftContract, uint256 indexed tokenId);
-
-
 
     function getBurntNFTs(address account) external view returns (uint256[] memory) {
         EnumerableSet.UintSet storage burntNFTSet = _burntNFTSet[account];
@@ -28,35 +40,47 @@ contract CBNFTBurnTrackingPlugin is ModularSessionKeyPlugin {
     }
 
     function executeAutoBurn(address nftContract, uint256 tokenId) external {
-        require(installedPlugins[msg.sender], "Only installed plugins can initiate auto-burn");
-
         address owner = IERC721(nftContract).ownerOf(tokenId);
-        require(owner == address(this), "The modular account must own the NFT");
-
-        IERC721(nftContract).transferFrom(address(this), address(0), tokenId);
-        _burntNFTSet[address(this)].add(tokenId);
-
-        emit NFTBurnt(address(this), nftContract, tokenId);
+        require(owner == address(modularAccount), "The modular account must own the NFT");
+        require(block.timestamp >= _lastClaimTimestamp[nftContract][tokenId] + AUTO_BURN_DELAY, "Auto-burn delay has not passed");
+        
+        IERC721(nftContract).transferFrom(address(modularAccount), address(0), tokenId);
+        _burntNFTSet[address(modularAccount)].add(tokenId);
+        emit NFTBurnt(address(modularAccount), nftContract, tokenId);
     }
 
-    function pluginManifest() external pure override returns (PluginManifest memory) {
-        PluginManifest memory manifest = super.pluginManifest();
+function getBurntNFTCount(address account) external view returns (uint256) {
+    EnumerableSet.UintSet storage burntNFTSet = _burntNFTSet[account];
+    return burntNFTSet.length();
+}
 
-      manifest.executionFunctions = new bytes4[](2);
-        manifest.executionFunctions[0] = this.burnNFT.selector;
-        manifest.executionFunctions[1] = this.executeAutoBurn.selector;
+    function onInstall(bytes calldata) external pure override {}
 
-        // Add any necessary user operation validation and runtime validation functions
+    function onUninstall(bytes calldata) external pure override {}
 
-        return manifest;
+    function pluginManifest() external pure override returns (PluginManifest memory manifest) {
+        manifest.executionFunctions = new bytes4[](1);
+        manifest.executionFunctions[0] = this.executeAutoBurn.selector;
+
+        manifest.preRuntimeValidationHooks = new ManifestAssociatedFunction[](1);
+        manifest.preRuntimeValidationHooks[0] = ManifestAssociatedFunction({
+            executionSelector: this.executeAutoBurn.selector,
+            associatedFunction: ManifestFunction({
+                functionType: ManifestAssociatedFunctionType.PRE_HOOK_ALWAYS_ALLOW,
+                functionId: 0,
+                dependencyIndex: 0
+            })
+        });
     }
 
-    function pluginMetadata() external pure override returns (PluginMetadata memory) {
-        PluginMetadata memory metadata = super.pluginMetadata();
+    function pluginMetadata() external pure override returns (PluginMetadata memory metadata) {
         metadata.name = NAME;
         metadata.version = VERSION;
         metadata.author = AUTHOR;
+    }
 
-        return metadata;
+    function updateLastClaimTimestamp(address nftContract, uint256 tokenId) external {
+        require(address(modularAccount) == msg.sender, "Only the modular account can update last claim timestamp");
+        _lastClaimTimestamp[nftContract][tokenId] = block.timestamp;
     }
 }
