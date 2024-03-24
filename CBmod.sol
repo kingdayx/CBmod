@@ -9,7 +9,7 @@ contract NFTBurnTrackingPlugin is ModularSessionKeyPlugin {
 
     string public constant NAME = "NFT Burn Tracking Plugin";
     string public constant VERSION = "1.0.0";
-    string public constant AUTHOR = "Your Name";
+    string public constant AUTHOR = "Elisha Day";
 
     mapping(address account => EnumerableSet.UintSet) private _burntNFTSet;
 
