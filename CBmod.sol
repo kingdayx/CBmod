@@ -4,12 +4,12 @@ pragma solidity ^0.8.19;
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@ethereum-oauth/module-session-key/contracts/ModularSessionKeyPlugin.sol";
 
-contract NFTBurnTrackingPlugin is ModularSessionKeyPlugin {
+contract CBNFTBurnTrackingPlugin is ModularSessionKeyPlugin {
     using EnumerableSet for EnumerableSet.UintSet;
 
-    string public constant NAME = "NFT Burn Tracking Plugin";
+    string public constant NAME = "Cosmic Bots NFT Burn Tracking Plugin";
     string public constant VERSION = "1.0.0";
-    string public constant AUTHOR = "Your Name";
+    string public constant AUTHOR = "Elisha Day";
 
     mapping(address account => EnumerableSet.UintSet) private _burntNFTSet;
 
