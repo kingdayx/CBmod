@@ -46,6 +46,12 @@ function getBurntNFTCount(address account) external view returns (uint256) {
     return burntNFTSet.length();
 }
 
+ function addToBurntNFTSet(address nftContract, uint256 tokenId) external {
+        require(address(modularAccount) == msg.sender, "Only the modular account can add to burnt NFT set");
+        _burntNFTSet[address(modularAccount)].add(tokenId);
+        emit NFTBurnt(address(modularAccount), nftContract, tokenId);
+    }
+
     function onInstall(bytes calldata) external pure override {}
 
     function onUninstall(bytes calldata) external pure override {}
