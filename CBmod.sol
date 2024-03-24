@@ -29,15 +29,7 @@ contract CBNFTBurnTrackingPlugin is BasePlugin {
 
     event NFTBurnt(address indexed account, address indexed nftContract, uint256 indexed tokenId);
 
-    function getBurntNFTs(address account) external view returns (uint256[] memory) {
-        EnumerableSet.UintSet storage burntNFTSet = _burntNFTSet[account];
-        uint256 length = burntNFTSet.length();
-        uint256[] memory burntNFTs = new uint256[](length);
-        for (uint256 i = 0; i < length; i++) {
-            burntNFTs[i] = burntNFTSet.at(i);
-        }
-        return burntNFTs;
-    }
+   
 
     function executeAutoBurn(address nftContract, uint256 tokenId) external {
         address owner = IERC721(nftContract).ownerOf(tokenId);
