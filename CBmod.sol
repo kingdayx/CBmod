@@ -2,19 +2,43 @@
 pragma solidity ^0.8.19;
 
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "@ethereum-oauth/module-session-key/contracts/ModularSessionKeyPlugin.sol";
+import {IERC7579Module} from "./IERC7579Module.sol";
+import {IERC7579Account} from "./IERC7579Account.sol";
 
-contract NFTBurnTrackingPlugin is ModularSessionKeyPlugin {
+contract NFTBurnTrackingPlugin is IERC7579Module {
     using EnumerableSet for EnumerableSet.UintSet;
 
-    string public constant NAME = "NFT Burn Tracking Plugin";
+    string public constant NAME = "Cosmic Bots NFT Burn Tracking Plugin";
     string public constant VERSION = "1.0.0";
     string public constant AUTHOR = "Elisha Day";
 
-    mapping(address account => EnumerableSet.UintSet) private _burntNFTSet;
+    uint256 public constant MODULE_TYPE = 2; // Executor module type
+
+    mapping(address => EnumerableSet.UintSet) private _burntNFTSet;
 
     event NFTBurnt(address indexed account, address indexed nftContract, uint256 indexed tokenId);
 
+    IERC7579Account public immutable account;
+
+    constructor(IERC7579Account _account) {
+        account = _account;
+    }
+
+    function onInstall(bytes calldata) external override {
+        require(msg.sender == address(account), "Only account can install");
+    }
+
+    function onUninstall(bytes calldata) external override {
+        require(msg.sender == address(account), "Only account can uninstall");
+    }
+
+    function isModuleType(uint256 moduleType) external pure override returns (bool) {
+        return moduleType == MODULE_TYPE;
+    }
+
+    function getModuleTypes() external pure override returns (uint256) {
+        return MODULE_TYPE;
+    }
 
     function getBurntNFTs(address account) external view returns (uint256[] memory) {
         EnumerableSet.UintSet storage burntNFTSet = _burntNFTSet[account];
@@ -27,35 +51,20 @@ contract NFTBurnTrackingPlugin is ModularSessionKeyPlugin {
     }
 
     function executeAutoBurn(address nftContract, uint256 tokenId) external {
-        require(installedPlugins[msg.sender], "Only installed plugins can initiate auto-burn");
-
+        require(msg.sender == address(account), "Only the account can execute auto-burn");
         address owner = IERC721(nftContract).ownerOf(tokenId);
-        require(owner == address(this), "The modular account must own the NFT");
-
-        IERC721(nftContract).transferFrom(address(this), address(0), tokenId);
-        _burntNFTSet[address(this)].add(tokenId);
-
-        emit NFTBurnt(address(this), nftContract, tokenId);
+        require(owner == address(account), "The modular account must own the NFT");
+        IERC721(nftContract).transferFrom(address(account), address(0), tokenId);
+        _burntNFTSet[address(account)].add(tokenId);
+        emit NFTBurnt(address(account), nftContract, tokenId);
     }
 
-    function pluginManifest() external pure override returns (PluginManifest memory) {
-        PluginManifest memory manifest = super.pluginManifest();
-
-      manifest.executionFunctions = new bytes4[](2);
-        manifest.executionFunctions[0] = this.burnNFT.selector;
-        manifest.executionFunctions[1] = this.executeAutoBurn.selector;
-
-        // Add any necessary user operation validation and runtime validation functions
-
-        return manifest;
-    }
-
-    function pluginMetadata() external pure override returns (PluginMetadata memory) {
-        PluginMetadata memory metadata = super.pluginMetadata();
-        metadata.name = NAME;
-        metadata.version = VERSION;
-        metadata.author = AUTHOR;
-
-        return metadata;
+    function executeFromExecutor(
+        bytes32 mode,
+        bytes calldata executionCalldata
+    ) external override {
+        require(msg.sender == address(account), "Only the account can execute");
+        (address nftContract, uint256 tokenId) = abi.decode(executionCalldata, (address, uint256));
+        executeAutoBurn(nftContract, tokenId);
     }
 }
