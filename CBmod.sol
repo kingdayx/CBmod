@@ -43,9 +43,9 @@ contract CBNFTBurnTrackingPlugin is BasePlugin {
         address owner = IERC721(nftContract).ownerOf(tokenId);
         require(owner == address(modularAccount()), "The modular account must own the NFT");
         require(block.timestamp >= _lastClaimTimestamp[nftContract][tokenId] + AUTO_BURN_DELAY, "Auto-burn delay has not passed");
-        
+         _burntNFTSet[address(modularAccount())].add(tokenId);
         IERC721(nftContract).safeTransferFrom(address(modularAccount()), address(0), tokenId);
-        _burntNFTSet[address(modularAccount())].add(tokenId);
+       
         emit NFTBurnt(address(modularAccount()), nftContract, tokenId);
     }
 
