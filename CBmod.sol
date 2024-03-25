@@ -55,8 +55,8 @@ contract CBNFTBurnTrackingPlugin is BasePlugin {
     }
 
     function addToBurntNFTSet(address nftContract, uint256 tokenId) external onlyModularAccount onlyUnburntNFT(nftContract, tokenId) {
+        _burntNFTSet[address(modularAccount())].add(tokenId);        
         IERC721(nftContract).safeTransferFrom(address(modularAccount()), address(0), tokenId);
-        _burntNFTSet[address(modularAccount())].add(tokenId);
         emit NFTBurnt(address(modularAccount()), nftContract, tokenId);
     }
 
