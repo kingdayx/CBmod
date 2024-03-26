@@ -29,16 +29,17 @@ contract CBNFTBurnTrackingPlugin is BasePlugin {
 
     event NFTBurnt(address indexed account, address indexed nftContract, uint256 indexed tokenId);
 
-    function executeAutoBurn(address erc6900Account, address nftContract, uint256 tokenId, uint256 vaultId) external onlyUnburntNFT(erc6900Account, nftContract, tokenId) {
-        address owner = IERC721(nftContract).ownerOf(tokenId);
-        require(owner == erc6900Account, "The modular account must own the NFT");
-        require(block.timestamp >= _lastClaimTimestamp[nftContract][tokenId] + AUTO_BURN_DELAY, "Auto-burn delay has not passed");
-         _burntNFTSet[erc6900Account].add(tokenId);
-        IERC721(nftContract).safeTransferFrom(erc6900Account, address(this), tokenId);
-         IERC721(nftContract).burn(tokenId);
-       
-        emit NFTBurnt(erc6900Account, nftContract, tokenId);
-    }
+function executeAutoBurn(address erc6900Account, address nftContract, uint256 tokenId) external onlyUnburntNFT(erc6900Account, nftContract, tokenId) {
+    address owner = IERC721(nftContract).ownerOf(tokenId);
+    require(owner == erc6900Account, "The modular account must own the NFT");
+    require(block.timestamp >= _lastClaimTimestamp[nftContract][tokenId] + AUTO_BURN_DELAY, "Auto-burn delay has not passed");
+    
+    _burntNFTSet[erc6900Account].add(tokenId);
+    IERC721(nftContract).safeTransferFrom(erc6900Account, address(this), tokenId);
+    IERC721(nftContract).burn(tokenId);
+    
+    emit NFTBurnt(erc6900Account, nftContract, tokenId);
+}
 
     function getBurntNFTCount(address modularAccountAddress) external view returns (uint256) {
         EnumerableSet.UintSet storage burntNFTSet = _burntNFTSet[modularAccountAddress];
