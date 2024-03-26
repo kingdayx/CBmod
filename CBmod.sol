@@ -2,14 +2,14 @@
 pragma solidity ^0.8.19;
 
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import {BasePlugin} from "@alchemy/modular-account/src/plugins/BasePlugin.sol";
+import {BasePlugin} from "../lib/modular-account/src/plugins/BasePlugin.sol";
 import {
     ManifestFunction,
     ManifestAssociatedFunctionType,
     ManifestAssociatedFunction,
     PluginManifest,
     PluginMetadata
-} from "@alchemy/modular-account/src/interfaces/IPlugin.sol";
+} from "../lib/modular-account/src/interfaces/IPlugin.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 /// @title NFT Burn Tracking Plugin
@@ -29,35 +29,26 @@ contract CBNFTBurnTrackingPlugin is BasePlugin {
 
     event NFTBurnt(address indexed account, address indexed nftContract, uint256 indexed tokenId);
 
-    modifier onlyModularAccount() {
-        require(msg.sender == address(modularAccount()), "Only the modular account can call this function");
-        _;
-    }
-
-    modifier onlyUnburntNFT(address nftContract, uint256 tokenId) {
-        require(!_burntNFTSet[address(modularAccount())].contains(tokenId), "NFT is already burnt");
-        _;
-    }
-
-    function executeAutoBurn(address nftContract, uint256 tokenId) external onlyModularAccount onlyUnburntNFT(nftContract, tokenId) {
+    function executeAutoBurn(address erc6900Account, address nftContract, uint256 tokenId, uint256 vaultId) external onlyUnburntNFT(erc6900Account, nftContract, tokenId) {
         address owner = IERC721(nftContract).ownerOf(tokenId);
-        require(owner == address(modularAccount()), "The modular account must own the NFT");
+        require(owner == erc6900Account, "The modular account must own the NFT");
         require(block.timestamp >= _lastClaimTimestamp[nftContract][tokenId] + AUTO_BURN_DELAY, "Auto-burn delay has not passed");
-         _burntNFTSet[address(modularAccount())].add(tokenId);
-        IERC721(nftContract).safeTransferFrom(address(modularAccount()), address(0), tokenId);
+         _burntNFTSet[erc6900Account].add(tokenId);
+        IERC721(nftContract).safeTransferFrom(erc6900Account, address(this), tokenId);
+         IERC721(nftContract).burn(tokenId);
        
-        emit NFTBurnt(address(modularAccount()), nftContract, tokenId);
+        emit NFTBurnt(erc6900Account, nftContract, tokenId);
     }
 
-    function getBurntNFTCount(address account) external view returns (uint256) {
-        EnumerableSet.UintSet storage burntNFTSet = _burntNFTSet[account];
+    function getBurntNFTCount(address modularAccountAddress) external view returns (uint256) {
+        EnumerableSet.UintSet storage burntNFTSet = _burntNFTSet[modularAccountAddress];
         return burntNFTSet.length();
     }
 
-    function addToBurntNFTSet(address nftContract, uint256 tokenId) external onlyModularAccount onlyUnburntNFT(nftContract, tokenId) {
-        _burntNFTSet[address(modularAccount())].add(tokenId);        
-        IERC721(nftContract).safeTransferFrom(address(modularAccount()), address(0), tokenId);
-        emit NFTBurnt(address(modularAccount()), nftContract, tokenId);
+    function addToBurntNFTSet(address modularAccountAddress, address nftContract, uint256 tokenId) external onlyUnburntNFT(modularAccountAddress, nftContract, tokenId) {
+        _burntNFTSet[modularAccountAddress].add(tokenId);        
+        IERC721(nftContract).safeTransferFrom(modularAccountAddress, address(0), tokenId);
+        emit NFTBurnt(modularAccountAddress, nftContract, tokenId);
     }
 
     function onInstall(bytes calldata) external pure override {}
@@ -103,7 +94,12 @@ contract CBNFTBurnTrackingPlugin is BasePlugin {
         metadata.author = AUTHOR;
     }
 
-    function updateLastClaimTimestamp(address nftContract, uint256 tokenId) external onlyModularAccount {
+    function updateLastClaimTimestamp(address modularAccountAddress, address nftContract, uint256 tokenId) external {
         _lastClaimTimestamp[nftContract][tokenId] = block.timestamp;
+    }
+
+    modifier onlyUnburntNFT(address modularAccountAddress, address nftContract, uint256 tokenId) {
+        require(!_burntNFTSet[modularAccountAddress].contains(tokenId), "NFT is already burnt");
+        _;
     }
 }
