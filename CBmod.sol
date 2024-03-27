@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.19;
 
-import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import {IERC721Burnable} from "./IERC721.sol";
 import {BasePlugin} from "../lib/modular-account/src/plugins/BasePlugin.sol";
 import {
     ManifestFunction,
@@ -30,13 +30,13 @@ contract CBNFTBurnTrackingPlugin is BasePlugin {
     event NFTBurnt(address indexed account, address indexed nftContract, uint256 indexed tokenId);
 
 function executeAutoBurn(address erc6900Account, address nftContract, uint256 tokenId) external onlyUnburntNFT(erc6900Account, nftContract, tokenId) {
-    address owner = IERC721(nftContract).ownerOf(tokenId);
+    address owner = IERC721Burnable(nftContract).ownerOf(tokenId);
     require(owner == erc6900Account, "The modular account must own the NFT");
     require(block.timestamp >= _lastClaimTimestamp[nftContract][tokenId] + AUTO_BURN_DELAY, "Auto-burn delay has not passed");
     
     _burntNFTSet[erc6900Account].add(tokenId);
-    IERC721(nftContract).safeTransferFrom(erc6900Account, address(this), tokenId);
-    IERC721(nftContract).burn(tokenId);
+    IERC721Burnable(nftContract).safeTransferFrom(erc6900Account, address(this), tokenId);
+    IERC721Burnable(nftContract).burn(tokenId);
     
     emit NFTBurnt(erc6900Account, nftContract, tokenId);
 }
@@ -48,7 +48,7 @@ function executeAutoBurn(address erc6900Account, address nftContract, uint256 to
 
     function addToBurntNFTSet(address modularAccountAddress, address nftContract, uint256 tokenId) external onlyUnburntNFT(modularAccountAddress, nftContract, tokenId) {
         _burntNFTSet[modularAccountAddress].add(tokenId);        
-        IERC721(nftContract).safeTransferFrom(modularAccountAddress, address(0), tokenId);
+        IERC721Burnable(nftContract).safeTransferFrom(modularAccountAddress, address(0), tokenId);
         emit NFTBurnt(modularAccountAddress, nftContract, tokenId);
     }
 
